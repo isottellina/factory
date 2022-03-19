@@ -26,7 +26,7 @@ def main() -> None:
         state.new_robot(session)
         session.commit()
 
-    window = MainWindow()
+    window = MainWindow(state)
     window.show()
 
     sys.exit(app.exec())

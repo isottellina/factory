@@ -1,6 +1,6 @@
 from typing import Optional
 
-from PySide6.QtCore import QSize, Slot
+from PySide6.QtCore import QSize, QTimer, Slot
 from PySide6.QtWidgets import (
     QFrame,
     QGroupBox,
@@ -14,6 +14,10 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from sqlalchemy.orm import Session as SASession
+
+from factory.controller import RobotController, StateController
+from factory.models import Robot
 
 
 class RobotView(QFrame):
@@ -30,21 +34,49 @@ class RobotView(QFrame):
     def sizeHint(self) -> QSize:
         return QSize(0, 100)
 
-    def __init__(self, name: str, parent: QWidget):
+    @property
+    def id(self) -> int:
+        return self.controller.id
+
+    @property
+    def robot(self) -> Robot:
+        return self.controller.robot
+
+    def update_from_controller(self, session: SASession) -> None:
+        # Ensure object is fresh from the database
+        self.controller.update(session)
+
+        if self.robot.action and self.robot.time_when_available is None:
+            # Case when a robot is actively doing something
+            self.action_label.setText(
+                f"Current action: {self.robot.action.to_string()}"
+            )
+            self.progress_bar.setValue(int(self.controller.progress()))
+        elif self.robot.action and self.robot.time_when_available:
+            # Case when a robot is currently changing action
+            self.action_label.setText(f"Changing to: {self.robot.action.to_string()}")
+            self.progress_bar.setValue(int(self.controller.progress()))
+        else:
+            # Case when a robot is doing nothing (probably lazy)
+            self.action_label.setText("Idle")
+
+    def __init__(self, controller: RobotController, parent: Optional[QWidget] = None):
         super().__init__(parent)
+        self.controller: RobotController = controller
 
         self.setFrameShape(QFrame.WinPanel)
         self.setFrameShadow(QFrame.Raised)
         main_layout = QVBoxLayout(self)
 
         top_layout = QHBoxLayout()
-        name_label = QLabel(name)
-        action_label = QLabel("Current action:")
-        progress_bar = QProgressBar()
+        name_label = QLabel(controller.name)
+        self.action_label = QLabel("Current action:")
+        self.progress_bar = QProgressBar()
+
         top_layout.addWidget(name_label)
         top_layout.addStretch(1)
-        top_layout.addWidget(action_label)
-        top_layout.addWidget(progress_bar, 1)
+        top_layout.addWidget(self.action_label)
+        top_layout.addWidget(self.progress_bar, 1)
 
         bottom_layout = QHBoxLayout()
         mine_foo_button = QPushButton("Mine Foo", None)
@@ -67,15 +99,47 @@ class RobotsView(QGroupBox):
     Presents all robots in a list-like fashion.
     """
 
-    def __init__(self, parent: QWidget):
+    @Slot()
+    def update_from_controller(self) -> None:
+        """
+        Update the widget from the data given by the controller.
+        """
+
+        with self.controller.model_session() as session:
+            # Update present widgets
+            for robot in self.present_robots.values():
+                robot.update_from_controller(session)
+
+            # Check for added robots. We don't need to check for removed robots
+            # since there is no way to lose a robot.
+            robots = self.controller.list_robots(session)
+
+            for robot in robots:
+                if robot.id not in self.present_robots:
+                    self.add_robot(robot)
+
+    def add_robot(self, robot: RobotController) -> None:
+        """
+        Add a RobotView given a RobotController
+        """
+        new_place = self.robot_layout.count() - 1
+        view = RobotView(robot)
+        self.robot_layout.insertWidget(new_place, view)
+        self.present_robots[robot.id] = view
+
+    def __init__(self, controller: StateController, parent: QWidget):
         super().__init__("Robots", parent)
-        layout = QVBoxLayout()
 
-        layout.addWidget(RobotView("Mariette", self))
-        layout.addWidget(RobotView("François", self))
-        layout.addStretch()  # Remaining space should be taken by nothing.
+        self.controller = controller
+        # Robots already inserted. We keep them with a mapping from robot id to widget.
+        self.present_robots: dict[int, RobotView] = {}
 
-        self.setLayout(layout)
+        self.robot_layout = QVBoxLayout()
+        self.robot_layout.addStretch()  # Remaining space should be taken by nothing.
+
+        self.update_from_controller()
+
+        self.setLayout(self.robot_layout)
 
 
 class MainWindow(QMainWindow):
@@ -84,8 +148,13 @@ class MainWindow(QMainWindow):
     a simple layout with robots and the inventory.
     """
 
-    def __init__(self, parent: Optional[QWidget] = None):
+    def __init__(self, controller: StateController, parent: Optional[QWidget] = None):
         super().__init__(parent)
+
+        # Timer
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.update_from_controller)
+        self.timer.start(16)
 
         # Init menu
         menu = QMenuBar(self)
@@ -98,10 +167,10 @@ class MainWindow(QMainWindow):
         central_widget = QWidget(self)
         central_layout = QHBoxLayout()
 
-        robots_view = RobotsView(self)
+        self.robots_view = RobotsView(controller, self)
         label2 = QLabel("Test2")
 
-        central_layout.addWidget(robots_view, 75)
+        central_layout.addWidget(self.robots_view, 75)
         central_layout.addWidget(label2, 25)
 
         central_widget.setLayout(central_layout)
@@ -110,6 +179,10 @@ class MainWindow(QMainWindow):
     @Slot()
     def save(self) -> None:
         raise NotImplementedError()
+
+    @Slot()
+    def update_from_controller(self) -> None:
+        self.robots_view.update_from_controller()
 
     def sizeHint(self) -> QSize:
         return QSize(1366, 768)

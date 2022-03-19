@@ -15,7 +15,7 @@ class PKMixin:
     possibly subject to change in subsequent versions.
     """
 
-    id = sa.Column(sa.Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = sa.Column(sa.Integer, primary_key=True, autoincrement=True)
 
 
 class RobotAction(enum.Enum):
@@ -25,11 +25,23 @@ class RobotAction(enum.Enum):
     SELLING_FOOBAR = enum.auto()
     BUYING_ROBOT = enum.auto()
 
+    def to_string(self) -> str:
+        """
+        Returns the name of an action, as it should be printed to the user.
+        """
+        return {
+            RobotAction.MINING_BAR: "Mining bar",
+            RobotAction.MINING_FOO: "Mining foo",
+            RobotAction.MAKING_FOOBAR: "Making foobar",
+            RobotAction.SELLING_FOOBAR: "Selling foobar",
+            RobotAction.BUYING_ROBOT: "Buying a robot",
+        }[self]
+
 
 class Robot(Base, PKMixin):
     __tablename__ = "robot"
 
-    name = sa.Column(
+    name: Mapped[str] = sa.Column(
         sa.String(64),
         unique=True,
         nullable=False,
@@ -41,6 +53,11 @@ class Robot(Base, PKMixin):
         nullable=True,
     )
 
+    time_started = sa.Column(
+        sa.DateTime,
+        nullable=True,
+        doc="When this robot started its current action or started changing its state.",
+    )
     time_when_available = sa.Column(
         sa.DateTime,
         nullable=True,

@@ -2,6 +2,7 @@ import enum
 import random
 import weakref
 from contextlib import contextmanager
+from datetime import datetime
 from typing import Iterator
 
 import sqlalchemy as sa
@@ -31,6 +32,41 @@ class RobotController(QObject):
     def __init__(self, parent: "StateController", robot: Robot):
         self.parent_controller = weakref.ref(parent)
         self.robot = robot
+
+    @property
+    def id(self) -> int:
+        return self.robot.id
+
+    @property
+    def name(self) -> str:
+        return self.robot.name
+
+    def update(self, session: SASession) -> None:
+        """
+        Reloads the object from database to ensure it isn't stale.
+        """
+        self.robot = session.scalar(sa.select(Robot).where(Robot.id == self.robot.id))
+
+    def progress(self) -> float:
+        """
+        Returns a float between 0 and 100 to indicate the progress
+        with the current task, whether it's changing or not.
+
+        To call this the robot must be doing something.
+        """
+        assert self.robot.action
+        assert self.robot.time_started
+
+        if self.robot.time_when_available is None:
+            assert self.robot.time_when_done
+
+            time_total = self.robot.time_when_done - self.robot.time_started
+            time_now = self.robot.time_when_done - datetime.now()
+            return (time_now / time_total) * 100
+        else:
+            time_total = self.robot.time_when_available - self.robot.time_started
+            time_now = self.robot.time_when_available - datetime.now()
+            return (time_now / time_total) * 100
 
     @Slot(RobotAction)
     def change_action(self, new_action: RobotAction) -> None:
@@ -67,7 +103,10 @@ class StateController(QObject):
             yield session
 
     def list_robots(self, session: SESSION) -> list[RobotController]:
-        return session.scalars(sa.select(Robot)).all()
+        return [
+            RobotController(self, robot)
+            for robot in session.scalars(sa.select(Robot)).all()
+        ]
 
     def get_robot_by_id(self, session: SESSION, id: int) -> RobotController:
         robot = session.scalar(sa.select(Robot).where(Robot.id == id))
