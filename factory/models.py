@@ -3,6 +3,8 @@ import uuid
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, declarative_base, declared_attr, relationship
+from sqlalchemy.orm.session import Session
+from sqlalchemy.sql.elements import not_
 
 Base = declarative_base()
 
@@ -16,6 +18,28 @@ class PKMixin:
     """
 
     id: Mapped[int] = sa.Column(sa.Integer, primary_key=True, autoincrement=True)
+
+
+class UsableMixin:
+    """
+    Mixin for objects that can be used for something.
+    """
+
+    used = sa.Column(
+        sa.Boolean,
+        default=False,
+        nullable=False,
+        doc="Has this object been used?",
+    )
+
+    @classmethod
+    def count_not_used(cls, session: Session) -> int:
+        """
+        Returns the number of instances that weren't used.
+        """
+        return session.scalar(  # type: ignore
+            sa.select(sa.func.count(cls.used)).where(not_(cls.used))
+        )
 
 
 class RobotAction(enum.Enum):
@@ -86,12 +110,6 @@ class MiningProductMixin:
     serial = sa.Column(
         sa.String(32), default=gen_uuid, doc="For traceability purposes."
     )
-    used = sa.Column(
-        sa.Boolean,
-        default=False,
-        nullable=False,
-        doc="Has this product been used to make a Foobar?",
-    )
 
     @declared_attr
     def miner_id(cls) -> sa.Column[sa.Integer]:
@@ -102,20 +120,16 @@ class MiningProductMixin:
         return relationship(Robot)
 
 
-class Foo(Base, PKMixin, MiningProductMixin):
+class Foo(Base, PKMixin, MiningProductMixin, UsableMixin):
     __tablename__ = "foo"
 
 
-class Bar(Base, PKMixin, MiningProductMixin):
+class Bar(Base, PKMixin, MiningProductMixin, UsableMixin):
     __tablename__ = "bar"
 
 
-class Foobar(Base, PKMixin):
+class Foobar(Base, PKMixin, UsableMixin):
     __tablename__ = "foobar"
-
-    sold = sa.Column(
-        sa.Boolean, default=False, nullable=False, doc="Has this Foobar been sold?"
-    )
 
     foo_used_id = sa.Column(
         sa.Integer,

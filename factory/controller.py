@@ -1,31 +1,18 @@
-import enum
 import weakref
 from contextlib import contextmanager
 from datetime import datetime, timedelta
-from typing import Iterator
+from typing import Iterator, Tuple
 
 import sqlalchemy as sa
 from faker import Faker
-from PySide6.QtCore import QObject
 from sqlalchemy.orm import Session as SASession
 from typing_extensions import TypeAlias
 
 from factory.database import Session
-from factory.models import Robot, RobotAction
+from factory.models import Bar, Foo, Foobar, Robot, RobotAction
 
 
-class InventoryChange(enum.Enum):
-    """
-    Represents a change in the player's inventory.
-    """
-
-    NEW_FOO = enum.auto()
-    NEW_BAR = enum.auto()
-    NEW_FOOBAR = enum.auto()
-    FOOBAR_SOLD = enum.auto()
-
-
-class RobotController(QObject):
+class RobotController:
     SESSION: TypeAlias = SASession
 
     def __init__(self, parent: "StateController", robot: Robot):
@@ -89,7 +76,7 @@ class RobotController(QObject):
         self.robot.time_when_available = now + timedelta(seconds=5)
 
 
-class StateController(QObject):
+class StateController:
     """
     Controls the state of the game. It is the parent of every
     other controller.
@@ -113,6 +100,16 @@ class StateController(QObject):
         """
         with Session() as session:
             yield session
+
+    def counts(self, session: SESSION) -> Tuple[int, int, int]:
+        """
+        Returns number of foo, bar, and foobars.
+        """
+        return (
+            Foo.count_not_used(session),
+            Bar.count_not_used(session),
+            Foobar.count_not_used(session),
+        )
 
     def list_robots(self, session: SESSION) -> list[RobotController]:
         return [

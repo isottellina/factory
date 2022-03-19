@@ -124,23 +124,21 @@ class RobotsView(QGroupBox):
     """
 
     @Slot()
-    def update_from_controller(self) -> None:
+    def update_from_controller(self, session: SASession) -> None:
         """
         Update the widget from the data given by the controller.
         """
+        # Update present widgets
+        for robot_view in self.present_robots.values():
+            robot_view.update_from_controller(session)
 
-        with self.controller.model_session() as session:
-            # Update present widgets
-            for robot in self.present_robots.values():
-                robot.update_from_controller(session)
+        # Check for added robots. We don't need to check for removed robots
+        # since there is no way to lose a robot.
+        robots = self.controller.list_robots(session)
 
-            # Check for added robots. We don't need to check for removed robots
-            # since there is no way to lose a robot.
-            robots = self.controller.list_robots(session)
-
-            for robot in robots:
-                if robot.id not in self.present_robots:
-                    self.add_robot(robot)
+        for robot in robots:
+            if robot.id not in self.present_robots:
+                self.add_robot(robot)
 
     def add_robot(self, robot: RobotController) -> None:
         """
@@ -161,9 +159,35 @@ class RobotsView(QGroupBox):
         self.robot_layout = QVBoxLayout()
         self.robot_layout.addStretch()  # Remaining space should be taken by nothing.
 
-        self.update_from_controller()
-
         self.setLayout(self.robot_layout)
+
+
+class InventoryView(QGroupBox):
+    """
+    View the number of each resources available.
+    """
+
+    def update_from_controller(self, session: SASession) -> None:
+        foo_count, bar_count, foobar_count = self.controller.counts(session)
+
+        self.foo_label.setText(f"Foos: {foo_count}")
+        self.bar_label.setText(f"Bars: {bar_count}")
+        self.foobar_label.setText(f"Foobars: {foobar_count}")
+
+    def __init__(self, controller: StateController, parent: Optional[QWidget]):
+        super().__init__(parent)
+        self.controller = controller
+        self.setTitle("Inventory")
+
+        self.inventory_layout = QVBoxLayout(self)
+        self.foo_label = QLabel("Foos:")
+        self.bar_label = QLabel("Bars:")
+        self.foobar_label = QLabel("Foobars:")
+
+        self.inventory_layout.addWidget(self.foo_label)
+        self.inventory_layout.addWidget(self.bar_label)
+        self.inventory_layout.addWidget(self.foobar_label)
+        self.inventory_layout.addStretch(1)
 
 
 class MainWindow(QMainWindow):
@@ -174,6 +198,7 @@ class MainWindow(QMainWindow):
 
     def __init__(self, controller: StateController, parent: Optional[QWidget] = None):
         super().__init__(parent)
+        self.controller = controller
 
         # Timer
         self.timer = QTimer()
@@ -192,10 +217,10 @@ class MainWindow(QMainWindow):
         central_layout = QHBoxLayout()
 
         self.robots_view = RobotsView(controller, self)
-        label2 = QLabel("Test2")
+        self.inventory_view = InventoryView(controller, self)
 
         central_layout.addWidget(self.robots_view, 75)
-        central_layout.addWidget(label2, 25)
+        central_layout.addWidget(self.inventory_view, 25)
 
         central_widget.setLayout(central_layout)
         self.setCentralWidget(central_widget)
@@ -206,7 +231,9 @@ class MainWindow(QMainWindow):
 
     @Slot()
     def update_from_controller(self) -> None:
-        self.robots_view.update_from_controller()
+        with self.controller.model_session() as session:
+            self.robots_view.update_from_controller(session)
+            self.inventory_view.update_from_controller(session)
 
     def sizeHint(self) -> QSize:
         return QSize(1366, 768)
