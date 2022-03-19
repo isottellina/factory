@@ -8,3 +8,5 @@ tmp/
 build
 htmlcov
 dist
+
+test.sqlite3
