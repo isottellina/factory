@@ -1,11 +1,11 @@
 import enum
-import random
 import weakref
 from contextlib import contextmanager
 from datetime import datetime
 from typing import Iterator
 
 import sqlalchemy as sa
+from faker import Faker
 from PySide6.QtCore import QObject, Signal, Slot
 from sqlalchemy.orm import Session as SASession
 from typing_extensions import TypeAlias
@@ -92,6 +92,9 @@ class StateController(QObject):
     # Emitted when the inventory changes.
     inventory = Signal()
 
+    def __init__(self) -> None:
+        self.faker = Faker()
+
     @contextmanager
     def model_session(self) -> Iterator[SASession]:
         """
@@ -119,8 +122,15 @@ class StateController(QObject):
         return RobotController(self, robot)
 
     def new_robot(self, session: SESSION) -> RobotController:
+        """
+        Generate a new robot with a unique name.
+        """
+        name = self.faker.name()
+        while session.execute(sa.select(Robot).filter_by(name=name)).first():
+            name = self.faker.name()
+
         robot = Robot(
-            name="Test name %f" % random.random(),
+            name=name,
             action=None,
             time_when_available=None,
             time_when_done=None,
