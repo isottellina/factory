@@ -8,6 +8,8 @@ from PySide6.QtWidgets import (
     QLabel,
     QMainWindow,
     QMenuBar,
+    QProgressBar,
+    QPushButton,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
@@ -33,10 +35,31 @@ class RobotView(QFrame):
 
         self.setFrameShape(QFrame.WinPanel)
         self.setFrameShadow(QFrame.Raised)
-        layout = QHBoxLayout(self)
-        label = QLabel(name)
+        main_layout = QVBoxLayout(self)
 
-        layout.addWidget(label)
+        top_layout = QHBoxLayout()
+        name_label = QLabel(name)
+        action_label = QLabel("Current action:")
+        progress_bar = QProgressBar()
+        top_layout.addWidget(name_label)
+        top_layout.addStretch(1)
+        top_layout.addWidget(action_label)
+        top_layout.addWidget(progress_bar, 1)
+
+        bottom_layout = QHBoxLayout()
+        mine_foo_button = QPushButton("Mine Foo", None)
+        mine_bar_button = QPushButton("Mine Bar", None)
+        make_foobar_button = QPushButton("Make Foobar", None)
+        sell_foobar_button = QPushButton("Sell foobar", None)
+        buy_robot_button = QPushButton("Buy robot", None)
+        bottom_layout.addWidget(mine_foo_button)
+        bottom_layout.addWidget(mine_bar_button)
+        bottom_layout.addWidget(make_foobar_button)
+        bottom_layout.addWidget(sell_foobar_button)
+        bottom_layout.addWidget(buy_robot_button)
+
+        main_layout.addLayout(top_layout)
+        main_layout.addLayout(bottom_layout)
 
 
 class RobotsView(QGroupBox):
@@ -47,7 +70,6 @@ class RobotsView(QGroupBox):
     def __init__(self, parent: QWidget):
         super().__init__("Robots", parent)
         layout = QVBoxLayout()
-        layout.setContentsMargins(0, 0, 0, 0)
 
         layout.addWidget(RobotView("Mariette", self))
         layout.addWidget(RobotView("François", self))
@@ -75,15 +97,12 @@ class MainWindow(QMainWindow):
 
         central_widget = QWidget(self)
         central_layout = QHBoxLayout()
-        central_layout.setContentsMargins(0, 0, 0, 0)
 
         robots_view = RobotsView(self)
         label2 = QLabel("Test2")
 
-        central_layout.addWidget(robots_view)
-        central_layout.addWidget(label2)
-        central_layout.setStretch(0, 75)
-        central_layout.setStretch(1, 25)
+        central_layout.addWidget(robots_view, 75)
+        central_layout.addWidget(label2, 25)
 
         central_widget.setLayout(central_layout)
         self.setCentralWidget(central_widget)
