@@ -1,15 +1,25 @@
+import random
 import weakref
 from contextlib import contextmanager
 from datetime import datetime, timedelta
-from typing import Iterator, Tuple
+from typing import Iterator, Optional, Tuple, Type
 
 import sqlalchemy as sa
 from faker import Faker
 from sqlalchemy.orm import Session as SASession
+from sqlalchemy.sql.elements import not_
 from typing_extensions import TypeAlias
 
 from factory.database import Session
-from factory.models import Bar, Foo, Foobar, GlobalState, Robot, RobotAction
+from factory.models import (
+    Bar,
+    Foo,
+    Foobar,
+    GlobalState,
+    Robot,
+    RobotAction,
+    UsableObject,
+)
 
 
 class RobotController:
@@ -39,12 +49,6 @@ class RobotController:
             with Session() as session:
                 yield session
 
-    def update(self, session: SASession) -> None:
-        """
-        Reloads the object from database to ensure it isn't stale.
-        """
-        self.robot = session.merge(self.robot)
-
     def progress(self) -> float:
         """
         Returns a float between 0 and 100 to indicate the progress
@@ -66,6 +70,78 @@ class RobotController:
             time_now = datetime.now() - self.robot.time_started
 
             return (time_now / time_total) * 100
+
+    def update(self, session: SESSION, now: datetime) -> None:
+        """
+        Check if current action is done, and updates state accordingly.
+        """
+
+        def action_will_take() -> timedelta:
+            """
+            How much time will the action take? Can't use a mapping for this
+            one since one of the action is random.
+            """
+            if self.robot.action == RobotAction.MINING_FOO:
+                return timedelta(seconds=2)
+
+            elif self.robot.action == RobotAction.MINING_BAR:
+                return timedelta(milliseconds=random.randint(500, 2000))
+
+            elif self.robot.action == RobotAction.MAKING_FOOBAR:
+                return timedelta(seconds=2)
+
+            elif self.robot.action == RobotAction.SELLING_FOOBAR:
+                return timedelta(seconds=10)
+
+            raise AssertionError("The robot's action is in an incoherent state.")
+
+        def start_action() -> None:
+            if self.robot.action == RobotAction.BUYING_ROBOT:
+                # This one is instantly finished.
+                action_done()
+                self.robot.action = None
+                return
+
+            self.robot.time_started = now
+            self.robot.time_when_done = now + action_will_take()
+
+        def action_done() -> bool:
+            """
+            Function to run when an action is done. Manages the weakref to
+            the parent. Returns whether the action should start again.
+            """
+            assert self.robot.action
+
+            parent = self.parent_controller()
+            assert parent, "Parent controller was Garbage-Collected?"
+
+            result = parent.robot_action_done(self.robot.action, session)
+            if self.robot.action == RobotAction.BUYING_ROBOT:
+                return False
+
+            return result
+
+        self.robot = session.merge(self.robot)
+
+        # Short-circuit if the robot is doing nothing.
+        if self.robot.action is None:
+            return
+
+        # Is the robot changing actions?
+        if self.robot.time_when_available:
+            if self.robot.time_when_available <= now:
+                self.robot.time_when_available = None
+                start_action()
+
+            return
+
+        # Is the robot done with its action?
+        assert self.robot.time_when_done
+        if self.robot.time_when_done <= now:
+            if action_done():
+                start_action()
+            else:
+                self.robot.action = None
 
     def change_action(self, session: SESSION, new_action: RobotAction) -> None:
         self.robot = session.merge(self.robot)
@@ -90,6 +166,7 @@ class StateController:
 
     def __init__(self) -> None:
         self.faker = Faker()
+        self.robot_cache: dict[int, RobotController] = {}
 
     @contextmanager
     def model_session(self) -> Iterator[SASession]:
@@ -100,6 +177,23 @@ class StateController:
         """
         with Session() as session:
             yield session
+
+    def get_from_cache_or_create(self, robot: Robot) -> RobotController:
+        _robot_controller = self.robot_cache.get(robot.id)
+        if _robot_controller:
+            return _robot_controller
+
+        self.robot_cache[robot.id] = self.ROBOT_CONTROLLER_FACTORY(self, robot)
+        return self.robot_cache[robot.id]
+
+    def update(self, session: SESSION) -> None:
+        """
+        Updates the state.
+        """
+        now = datetime.now()
+
+        for robot in self.list_robots(session):
+            robot.update(session, now)
 
     def counts(self, session: SESSION) -> Tuple[int, int, int, int]:
         """
@@ -112,21 +206,31 @@ class StateController:
             session.scalar(sa.select(GlobalState.euros)),
         )
 
+    def add_euros(self, session: SESSION, n: int) -> None:
+        current_euros = session.scalar(sa.select(GlobalState.euros))
+
+        session.execute(sa.update(GlobalState).values(euros=current_euros + n))
+
+    def sub_euros(self, session: SESSION, n: int) -> None:
+        current_euros = session.scalar(sa.select(GlobalState.euros))
+
+        session.execute(sa.update(GlobalState).values(euros=current_euros - n))
+
     def list_robots(self, session: SESSION) -> list[RobotController]:
         return [
-            self.ROBOT_CONTROLLER_FACTORY(self, robot)
+            self.get_from_cache_or_create(robot)
             for robot in session.scalars(sa.select(Robot)).all()
         ]
 
     def get_robot_by_id(self, session: SESSION, id: int) -> RobotController:
         robot = session.scalar(sa.select(Robot).where(Robot.id == id))
 
-        return self.ROBOT_CONTROLLER_FACTORY(self, robot)
+        return self.get_from_cache_or_create(robot)
 
     def get_robot_by_name(self, session: SESSION, name: str) -> RobotController:
         robot = session.scalar(sa.select(Robot).where(Robot.name == name))
 
-        return self.ROBOT_CONTROLLER_FACTORY(self, robot)
+        return self.get_from_cache_or_create(robot)
 
     def new_robot(self, session: SESSION) -> RobotController:
         """
@@ -144,4 +248,91 @@ class StateController:
         )
 
         session.add(robot)
-        return self.ROBOT_CONTROLLER_FACTORY(self, robot)
+        return self.get_from_cache_or_create(robot)
+
+    def use_product(
+        self, session: SESSION, product: Type[UsableObject]
+    ) -> Optional[UsableObject]:
+        """
+        Uses a product and returns the product
+        """
+        obj = session.scalar(sa.select(product).where(not_(product.used)))
+
+        if obj:
+            obj.used = True
+
+        # Type of obj is either None or the queried type, but mypy can't check this.
+        return obj  # type: ignore
+
+    def use_n_products(
+        self, session: SESSION, product_cls: Type[UsableObject], n: int
+    ) -> int:
+        """
+        Uses at max n products, return the number that was used.
+        """
+        query = sa.select(product_cls).where(not_(product_cls.used)).limit(n)
+
+        used_products = session.scalars(query).all()
+
+        for product in used_products:
+            product.used = True
+
+        return len(used_products)
+
+    def robot_action_done(self, action: RobotAction, session: SESSION) -> bool:
+        """
+        A Robot has finished its action. Returns whether the action
+        can happen again.
+        """
+        foo_count, bar_count, foobar_count, euros_count = self.counts(session)
+
+        if action == RobotAction.MINING_FOO:
+            # Create a new Foo. This can't fail.
+            session.add(Foo())
+
+            return True
+
+        elif action == RobotAction.MINING_BAR:
+            # Same but for Bar.
+            session.add(Bar())
+
+            return True
+
+        elif action == RobotAction.MAKING_FOOBAR:
+            if foo_count >= 1 and bar_count >= 1:
+                # We use the foo anyway, even if it fails.
+                foo: Foo = self.use_product(session, Foo)  # type: ignore
+
+                chance_of_success = random.randint(1, 100)
+                if chance_of_success > 60:  # Making Foobar failed.
+                    return True
+
+                bar: Bar = self.use_product(session, Bar)  # type: ignore
+
+                session.add(Foobar(foo_used=foo, bar_used=bar))
+
+                return True
+            return False
+
+        elif action == RobotAction.SELLING_FOOBAR:
+            if foobar_count == 0:
+                return False
+
+            nb_foobar_to_sell = random.randint(1, 5)
+
+            # If we have less than the amount to sell but still not 0, we still sell the
+            # max we can.
+            nb_foobar_sold = self.use_n_products(session, Foobar, nb_foobar_to_sell)
+            self.add_euros(session, nb_foobar_sold)
+
+            return True
+
+        elif action == RobotAction.BUYING_ROBOT:  # This one finished instantly
+            if foo_count >= 6 and euros_count >= 3:
+                self.use_n_products(session, Foo, 6)
+                self.sub_euros(session, 3)
+                self.new_robot(session)
+
+            return False
+
+        raise AssertionError("This point should be unreachable.")

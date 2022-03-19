@@ -20,7 +20,7 @@ class PKMixin:
     id: Mapped[int] = sa.Column(sa.Integer, primary_key=True, autoincrement=True)
 
 
-class UsableMixin:
+class UsableObject:
     """
     Mixin for objects that can be used for something.
     """
@@ -120,15 +120,15 @@ class MiningProductMixin:
         return relationship(Robot)
 
 
-class Foo(Base, PKMixin, MiningProductMixin, UsableMixin):
+class Foo(Base, PKMixin, MiningProductMixin, UsableObject):
     __tablename__ = "foo"
 
 
-class Bar(Base, PKMixin, MiningProductMixin, UsableMixin):
+class Bar(Base, PKMixin, MiningProductMixin, UsableObject):
     __tablename__ = "bar"
 
 
-class Foobar(Base, PKMixin, UsableMixin):
+class Foobar(Base, PKMixin, UsableObject):
     __tablename__ = "foobar"
 
     foo_used_id = sa.Column(

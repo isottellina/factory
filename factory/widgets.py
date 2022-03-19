@@ -43,10 +43,7 @@ class RobotView(QFrame):
     def robot(self) -> Robot:
         return self.controller.robot
 
-    def update_from_controller(self, session: SASession) -> None:
-        # Ensure object is fresh from the database
-        self.controller.update(session)
-
+    def update_from_controller(self) -> None:
         if self.robot.action and self.robot.time_when_available is None:
             # Case when a robot is actively doing something
             self.action_label.setText(
@@ -60,6 +57,7 @@ class RobotView(QFrame):
         else:
             # Case when a robot is doing nothing (probably lazy)
             self.action_label.setText("Idle")
+            self.progress_bar.setValue(0)
 
     @Slot(QPushButton)
     def button_pressed(self, button: QPushButton) -> None:
@@ -128,9 +126,11 @@ class RobotsView(QGroupBox):
         """
         Update the widget from the data given by the controller.
         """
-        # Update present widgets
+        # Update present widgets. We don't need to check them out
+        # from the database, since the controller is supposed to have
+        # been updated just before.
         for robot_view in self.present_robots.values():
-            robot_view.update_from_controller(session)
+            robot_view.update_from_controller()
 
         # Check for added robots. We don't need to check for removed robots
         # since there is no way to lose a robot.
@@ -201,14 +201,16 @@ class MainWindow(QMainWindow):
     a simple layout with robots and the inventory.
     """
 
+    UPDATE_INTERVAL = 16  # Number of milliseconds between each update.
+
     def __init__(self, controller: StateController, parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.controller = controller
 
         # Timer
         self.timer = QTimer()
-        self.timer.timeout.connect(self.update_from_controller)
-        self.timer.start(16)
+        self.timer.timeout.connect(self.update)
+        self.timer.start(self.UPDATE_INTERVAL)
 
         # Init menu
         menu = QMenuBar(self)
@@ -235,10 +237,19 @@ class MainWindow(QMainWindow):
         raise NotImplementedError()
 
     @Slot()
-    def update_from_controller(self) -> None:
+    def update(self) -> None:
+        """
+        Updates the state, then updates the view from the controller.
+        """
         with self.controller.model_session() as session:
-            self.robots_view.update_from_controller(session)
-            self.inventory_view.update_from_controller(session)
+            self.controller.update(session)
+            self.update_from_controller(session)
+
+            session.commit()
+
+    def update_from_controller(self, session: SASession) -> None:
+        self.robots_view.update_from_controller(session)
+        self.inventory_view.update_from_controller(session)
 
     def sizeHint(self) -> QSize:
         return QSize(1366, 768)
