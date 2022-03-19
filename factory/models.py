@@ -144,3 +144,13 @@ class Foobar(Base, PKMixin, UsableMixin):
 
     foo_used: Foo = relationship(Foo)
     bar_used: Bar = relationship(Bar)
+
+
+class GlobalState(Base, PKMixin):
+    """
+    Singleton for the information that we can't put elsewhere.
+    """
+
+    __tablename__ = "global_state"
+
+    euros = sa.Column(sa.Integer, default=0, nullable=False)

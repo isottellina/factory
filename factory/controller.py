@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session as SASession
 from typing_extensions import TypeAlias
 
 from factory.database import Session
-from factory.models import Bar, Foo, Foobar, Robot, RobotAction
+from factory.models import Bar, Foo, Foobar, GlobalState, Robot, RobotAction
 
 
 class RobotController:
@@ -101,14 +101,15 @@ class StateController:
         with Session() as session:
             yield session
 
-    def counts(self, session: SESSION) -> Tuple[int, int, int]:
+    def counts(self, session: SESSION) -> Tuple[int, int, int, int]:
         """
-        Returns number of foo, bar, and foobars.
+        Returns number of foo, bar, foobars and euros.
         """
         return (
             Foo.count_not_used(session),
             Bar.count_not_used(session),
             Foobar.count_not_used(session),
+            session.scalar(sa.select(GlobalState.euros)),
         )
 
     def list_robots(self, session: SESSION) -> list[RobotController]:
