@@ -2,6 +2,7 @@ from typing import Optional
 
 from PySide6.QtCore import QSize, QTimer, Slot
 from PySide6.QtWidgets import (
+    QButtonGroup,
     QFrame,
     QGroupBox,
     QHBoxLayout,
@@ -17,7 +18,7 @@ from PySide6.QtWidgets import (
 from sqlalchemy.orm import Session as SASession
 
 from factory.controller import RobotController, StateController
-from factory.models import Robot
+from factory.models import Robot, RobotAction
 
 
 class RobotView(QFrame):
@@ -60,6 +61,14 @@ class RobotView(QFrame):
             # Case when a robot is doing nothing (probably lazy)
             self.action_label.setText("Idle")
 
+    @Slot(QPushButton)
+    def button_pressed(self, button: QPushButton) -> None:
+        with self.controller.model_session() as session:
+            new_action = self.robot_actions[button]
+            self.controller.change_action(session, new_action)
+
+            session.commit()
+
     def __init__(self, controller: RobotController, parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.controller: RobotController = controller
@@ -79,11 +88,26 @@ class RobotView(QFrame):
         top_layout.addWidget(self.progress_bar, 1)
 
         bottom_layout = QHBoxLayout()
+        self.button_group = QButtonGroup()
         mine_foo_button = QPushButton("Mine Foo", None)
         mine_bar_button = QPushButton("Mine Bar", None)
         make_foobar_button = QPushButton("Make Foobar", None)
         sell_foobar_button = QPushButton("Sell foobar", None)
         buy_robot_button = QPushButton("Buy robot", None)
+
+        # Mapping buttons to actions
+        self.robot_actions = {
+            mine_foo_button: RobotAction.MINING_FOO,
+            mine_bar_button: RobotAction.MINING_BAR,
+            make_foobar_button: RobotAction.MAKING_FOOBAR,
+            sell_foobar_button: RobotAction.SELLING_FOOBAR,
+            buy_robot_button: RobotAction.BUYING_ROBOT,
+        }
+
+        for button in self.robot_actions:
+            self.button_group.addButton(button)
+        self.button_group.buttonClicked.connect(self.button_pressed)
+
         bottom_layout.addWidget(mine_foo_button)
         bottom_layout.addWidget(mine_bar_button)
         bottom_layout.addWidget(make_foobar_button)

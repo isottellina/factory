@@ -1,12 +1,12 @@
 import enum
 import weakref
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Iterator
 
 import sqlalchemy as sa
 from faker import Faker
-from PySide6.QtCore import QObject, Signal, Slot
+from PySide6.QtCore import QObject
 from sqlalchemy.orm import Session as SASession
 from typing_extensions import TypeAlias
 
@@ -26,8 +26,7 @@ class InventoryChange(enum.Enum):
 
 
 class RobotController(QObject):
-    changing = Signal()  # Emitted when the robot changes action.
-    finished = Signal()  # Emitted when the robot finished its current action
+    SESSION: TypeAlias = SASession
 
     def __init__(self, parent: "StateController", robot: Robot):
         self.parent_controller = weakref.ref(parent)
@@ -41,11 +40,23 @@ class RobotController(QObject):
     def name(self) -> str:
         return self.robot.name
 
+    @contextmanager
+    def model_session(self) -> Iterator[SESSION]:
+        ref = self.parent_controller()
+        if ref:
+            with ref.model_session() as session:
+                yield session
+
+        else:
+            # If parent is not available anymore, yield our own
+            with Session() as session:
+                yield session
+
     def update(self, session: SASession) -> None:
         """
         Reloads the object from database to ensure it isn't stale.
         """
-        self.robot = session.scalar(sa.select(Robot).where(Robot.id == self.robot.id))
+        self.robot = session.merge(self.robot)
 
     def progress(self) -> float:
         """
@@ -61,16 +72,21 @@ class RobotController(QObject):
             assert self.robot.time_when_done
 
             time_total = self.robot.time_when_done - self.robot.time_started
-            time_now = self.robot.time_when_done - datetime.now()
+            time_now = datetime.now() - self.robot.time_started
             return (time_now / time_total) * 100
         else:
             time_total = self.robot.time_when_available - self.robot.time_started
-            time_now = self.robot.time_when_available - datetime.now()
+            time_now = datetime.now() - self.robot.time_started
+
             return (time_now / time_total) * 100
 
-    @Slot(RobotAction)
-    def change_action(self, new_action: RobotAction) -> None:
-        print("Changing action to", new_action)
+    def change_action(self, session: SESSION, new_action: RobotAction) -> None:
+        self.robot = session.merge(self.robot)
+
+        now = datetime.now()
+        self.robot.action = new_action
+        self.robot.time_started = now
+        self.robot.time_when_available = now + timedelta(seconds=5)
 
 
 class StateController(QObject):
@@ -84,13 +100,6 @@ class StateController(QObject):
 
     # The Session type used for queries
     SESSION: TypeAlias = SASession
-
-    # Emitted when any robot changes state. It is emitted with
-    # the name of the robot who changed state.
-    robot = Signal()
-
-    # Emitted when the inventory changes.
-    inventory = Signal()
 
     def __init__(self) -> None:
         self.faker = Faker()
@@ -107,19 +116,19 @@ class StateController(QObject):
 
     def list_robots(self, session: SESSION) -> list[RobotController]:
         return [
-            RobotController(self, robot)
+            self.ROBOT_CONTROLLER_FACTORY(self, robot)
             for robot in session.scalars(sa.select(Robot)).all()
         ]
 
     def get_robot_by_id(self, session: SESSION, id: int) -> RobotController:
         robot = session.scalar(sa.select(Robot).where(Robot.id == id))
 
-        return RobotController(self, robot)
+        return self.ROBOT_CONTROLLER_FACTORY(self, robot)
 
     def get_robot_by_name(self, session: SESSION, name: str) -> RobotController:
         robot = session.scalar(sa.select(Robot).where(Robot.name == name))
 
-        return RobotController(self, robot)
+        return self.ROBOT_CONTROLLER_FACTORY(self, robot)
 
     def new_robot(self, session: SESSION) -> RobotController:
         """
@@ -137,4 +146,4 @@ class StateController(QObject):
         )
 
         session.add(robot)
-        return RobotController(self, robot)
+        return self.ROBOT_CONTROLLER_FACTORY(self, robot)
