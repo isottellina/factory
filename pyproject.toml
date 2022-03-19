@@ -17,6 +17,8 @@ black = "^22.1.0"
 pytest-cov = "^3.0.0"
 pytest-qt = "^4.0.2"
 flake8 = "^4.0.1"
+freezegun = "^1.2.1"
+pytest-mock = "^3.7.0"
 
 [tool.poetry.scripts]
 factory = "factory.main:main"
@@ -27,6 +29,11 @@ profile = "black"
 [tool.mypy]
 plugins = "sqlalchemy.ext.mypy.plugin"
 strict = true
+
+[tool.pytest.ini_options]
+markers = [
+        "init_controller_with: requires the test controller be initialized with some objects"
+]
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

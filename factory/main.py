@@ -1,13 +1,14 @@
 import sys
+from typing import NoReturn
 
 from PySide6.QtWidgets import QApplication
 
+import factory.database
 from factory.controller import StateController
-from factory.database import Session, init_database
 from factory.widgets import MainWindow
 
 
-def main() -> None:
+def main() -> NoReturn:
     # Debug code to remove the test data at each start.
     # TODO: Remove that
     import pathlib
@@ -18,10 +19,10 @@ def main() -> None:
 
     app = QApplication(sys.argv)
 
-    init_database()
+    factory.database.init_database()
 
     state = StateController()
-    with Session() as session:
+    with factory.database.Session() as session:
         state.new_robot(session)
         state.new_robot(session)
         session.commit()

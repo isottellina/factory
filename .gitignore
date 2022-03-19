@@ -8,5 +8,6 @@ tmp/
 build
 htmlcov
 dist
+.coverage
 
 test.sqlite3

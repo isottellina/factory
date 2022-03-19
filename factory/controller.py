@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import random
 import weakref
 from contextlib import contextmanager
@@ -10,7 +12,7 @@ from sqlalchemy.orm import Session as SASession
 from sqlalchemy.sql.elements import not_
 from typing_extensions import TypeAlias
 
-from factory.database import Session
+import factory.database
 from factory.models import (
     Bar,
     Foo,
@@ -25,7 +27,7 @@ from factory.models import (
 class RobotController:
     SESSION: TypeAlias = SASession
 
-    def __init__(self, parent: "StateController", robot: Robot):
+    def __init__(self, parent: StateController, robot: Robot):
         self.parent_controller = weakref.ref(parent)
         self.robot = robot
 
@@ -46,7 +48,7 @@ class RobotController:
 
         else:
             # If parent is not available anymore, yield our own
-            with Session() as session:
+            with factory.database.Session() as session:
                 yield session
 
     def progress(self) -> float:
@@ -175,7 +177,7 @@ class StateController:
         own functions because a session should be tied to a wider action,
         such as one instantiated by the User.
         """
-        with Session() as session:
+        with factory.database.Session() as session:
             yield session
 
     def get_from_cache_or_create(self, robot: Robot) -> RobotController:
@@ -236,9 +238,7 @@ class StateController:
         """
         Generate a new robot with a unique name.
         """
-        name = self.faker.name()
-        while session.execute(sa.select(Robot).filter_by(name=name)).first():
-            name = self.faker.name()
+        name = self.faker.unique.name()
 
         robot = Robot(
             name=name,
