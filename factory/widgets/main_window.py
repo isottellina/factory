@@ -1,8 +1,16 @@
 #!/usr/bin/env python3
+import os
 from typing import Optional
 
 from PySide6.QtCore import QSize, QTimer, Slot
-from PySide6.QtWidgets import QHBoxLayout, QMainWindow, QMenuBar, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QFileDialog,
+    QHBoxLayout,
+    QMainWindow,
+    QMenuBar,
+    QVBoxLayout,
+    QWidget,
+)
 from sqlalchemy.orm import Session as SASession
 
 from factory.controller import StateController
@@ -33,7 +41,9 @@ class MainWindow(QMainWindow):
         menu = QMenuBar(self)
         file_menu = menu.addMenu("File")
         save_action = file_menu.addAction("Save")
+        load_action = file_menu.addAction("Load")
         save_action.triggered.connect(self.save)
+        load_action.triggered.connect(self.load)
 
         self.setMenuBar(menu)
 
@@ -55,8 +65,27 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central_widget)
 
     @Slot()
+    def load(self) -> None:
+        current_dir = os.getcwd()
+        filename, _ = QFileDialog.getOpenFileName(
+            self,
+            "What is the filename to load?",
+            current_dir,
+            "SQLite database (*.sqlite *.sqlite3)",
+        )
+
+        if filename:
+            self.controller.load(filename)
+
+    @Slot()
     def save(self) -> None:
-        raise NotImplementedError()
+        current_dir = os.getcwd()
+        filename, _ = QFileDialog.getSaveFileName(
+            self, "Where to save?", current_dir, "SQLite database (*.sqlite *.sqlite3)"
+        )
+
+        if filename:
+            self.controller.save(filename)
 
     @Slot()
     def update(self) -> None:

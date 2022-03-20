@@ -9,14 +9,6 @@ from factory.widgets import MainWindow
 
 
 def main() -> NoReturn:
-    # Debug code to remove the test data at each start.
-    # TODO: Remove that
-    import pathlib
-
-    db_path = pathlib.Path("./test.sqlite3")
-    if db_path.exists():
-        db_path.unlink()
-
     app = QApplication(sys.argv)
 
     factory.database.init_database()

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import random
+import sqlite3
 import weakref
 from contextlib import contextmanager
 from datetime import datetime, timedelta
@@ -193,6 +194,26 @@ class StateController:
     def __init__(self) -> None:
         self.faker = Faker()
         self.robot_cache: dict[int, RobotController] = {}
+
+    def load(self, filename: str) -> None:
+        assert factory.database.engine.dialect.name == "sqlite"
+
+        # Loading the file
+        savefile = sqlite3.connect(filename)
+
+        # Getting the raw SQLite connection
+        raw_connection = factory.database.engine.raw_connection()
+        savefile.backup(raw_connection.dbapi_connection)
+
+    def save(self, filename: str) -> None:
+        assert factory.database.engine.dialect.name == "sqlite"
+
+        # Getting the raw SQLite connection
+        raw_connection = factory.database.engine.raw_connection()
+
+        # Creating the file
+        savefile = sqlite3.connect(filename)
+        raw_connection.backup(savefile)
 
     @contextmanager
     def model_session(self) -> Iterator[SASession]:

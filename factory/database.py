@@ -4,10 +4,7 @@ from sqlalchemy.orm import scoped_session, sessionmaker
 
 from factory.models import Base, GlobalState
 
-# For now, we initialize the database in a file to be able to
-# query it with sqlite3 for debugging purposes. Ultimately it
-# should be in memory.
-engine = create_engine("sqlite:///test.sqlite3")
+engine = create_engine("sqlite:///:memory:")
 Session = scoped_session(sessionmaker(engine))
 
 
