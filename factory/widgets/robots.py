@@ -42,15 +42,17 @@ class RobotView(QFrame):
         return self.controller.robot
 
     def update_from_controller(self) -> None:
-        if self.robot.action and self.robot.time_when_available is None:
+        if self.controller.action and self.robot.time_when_available is None:
             # Case when a robot is actively doing something
             self.action_label.setText(
-                f"Current action: {self.robot.action.to_string()}"
+                f"Current action: {self.controller.action.to_string()}"
             )
             self.progress_bar.setValue(int(self.controller.progress()))
-        elif self.robot.action and self.robot.time_when_available:
+        elif self.controller.action and self.robot.time_when_available:
             # Case when a robot is currently changing action
-            self.action_label.setText(f"Changing to: {self.robot.action.to_string()}")
+            self.action_label.setText(
+                f"Changing to: {self.controller.action.to_string()}"
+            )
             self.progress_bar.setValue(int(self.controller.progress()))
         else:
             # Case when a robot is doing nothing (probably lazy)

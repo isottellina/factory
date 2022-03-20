@@ -44,11 +44,11 @@ class RobotController:
         """
         Helper for pyright, this poor little boy seems to be so lost.
         """
-        return self.robot.action  # type: ignore
+        return self.robot.action
 
     @action.setter
     def action(self, action: Optional[RobotAction]) -> None:
-        self.robot.action = action  # type: ignore
+        self.robot.action = action
 
     @property
     def active(self) -> bool:

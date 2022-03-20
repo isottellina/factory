@@ -30,6 +30,10 @@ profile = "black"
 plugins = "sqlalchemy.ext.mypy.plugin"
 strict = true
 
+[[tool.mypy.overrides]]
+module = "pytestqt.*"
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 markers = [
         "init_controller_with: requires the test controller be initialized with some objects",
