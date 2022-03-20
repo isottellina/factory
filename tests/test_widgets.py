@@ -17,6 +17,8 @@ from factory.widgets.robots import RobotView
 class MockedStateController(StateController):
     counts = MagicMock(return_value=(0, 0, 0, 0))
     update = MagicMock()
+    list_robots = MagicMock(return_value=[])
+    list_sold_foobars = MagicMock(return_value=[])
 
 
 class TestMainWindow:

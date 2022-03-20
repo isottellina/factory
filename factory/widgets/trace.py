@@ -1,6 +1,5 @@
 from typing import Optional, cast
 
-import sqlalchemy as sa
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QGroupBox,
@@ -40,7 +39,7 @@ class TraceabilityView(QGroupBox):
         self.table.resizeColumnsToContents()
 
     def update_from_controller(self, session: SASession) -> None:
-        foobars = session.scalars(sa.select(Foobar).where(Foobar.used)).all()
+        foobars = self.controller.list_sold_foobars(session)
 
         db_foobars = {foobar.id: foobar for foobar in foobars}
         to_add = set(db_foobars) - self.already_added

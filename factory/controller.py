@@ -274,6 +274,9 @@ class StateController:
             for robot in session.scalars(sa.select(Robot)).all()
         ]
 
+    def list_sold_foobars(self, session: SESSION) -> list[Foobar]:
+        return session.scalars(sa.select(Foobar).where(Foobar.used)).all()
+
     def new_robot(self, session: SESSION) -> RobotController:
         """
         Generate a new robot with a unique name.
