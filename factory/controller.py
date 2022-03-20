@@ -73,11 +73,7 @@ class RobotController:
 
             return (time_now / time_total) * 100
 
-    def update(self, session: SESSION, now: datetime) -> None:
-        """
-        Check if current action is done, and updates state accordingly.
-        """
-
+    def start_action(self, session: SESSION, now: datetime) -> None:
         def action_will_take() -> timedelta:
             """
             How much time will the action take? Can't use a mapping for this
@@ -97,32 +93,35 @@ class RobotController:
 
             raise AssertionError("The robot's action is in an incoherent state.")
 
-        def start_action() -> None:
-            if self.robot.action == RobotAction.BUYING_ROBOT:
-                # This one is instantly finished.
-                action_done()
-                self.robot.action = None
-                return
+        if self.robot.action == RobotAction.BUYING_ROBOT:
+            # This one is instantly finished.
+            self.action_done(session)
+            self.robot.action = None
+            return
 
-            self.robot.time_started = now
-            self.robot.time_when_done = now + action_will_take()
+        self.robot.time_started = now
+        self.robot.time_when_done = now + action_will_take()
 
-        def action_done() -> bool:
-            """
-            Function to run when an action is done. Manages the weakref to
-            the parent. Returns whether the action should start again.
-            """
-            assert self.robot.action
+    def action_done(self, session: SESSION) -> bool:
+        """
+        Function to run when an action is done. Manages the weakref to
+        the parent. Returns whether the action should start again.
+        """
+        assert self.robot.action
 
-            parent = self.parent_controller()
-            assert parent, "Parent controller was Garbage-Collected?"
+        parent = self.parent_controller()
+        assert parent, "Parent controller was Garbage-Collected?"
 
-            result = parent.robot_action_done(self.robot.action, session)
-            if self.robot.action == RobotAction.BUYING_ROBOT:
-                return False
+        result = parent.robot_action_done(self.robot.action, session)
+        if self.robot.action == RobotAction.BUYING_ROBOT:
+            return False
 
-            return result
+        return result
 
+    def update(self, session: SESSION, now: datetime) -> None:
+        """
+        Check if current action is done, and updates state accordingly.
+        """
         self.robot = session.merge(self.robot)
 
         # Short-circuit if the robot is doing nothing.
@@ -133,15 +132,15 @@ class RobotController:
         if self.robot.time_when_available:
             if self.robot.time_when_available <= now:
                 self.robot.time_when_available = None
-                start_action()
+                self.start_action(session, now)
 
             return
 
         # Is the robot done with its action?
         assert self.robot.time_when_done
         if self.robot.time_when_done <= now:
-            if action_done():
-                start_action()
+            if self.action_done(session):
+                self.start_action(session, now)
             else:
                 self.robot.action = None
 

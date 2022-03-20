@@ -98,7 +98,7 @@ class TestStateController:
     @pytest.mark.init_controller_with(foo=2)
     def test_using_product(
         self, initialized_session: Session, test_controller: StateController
-    ):
+    ) -> None:
         """
         Tests the use_product function uses only one object, and marks it as used.
         """
@@ -117,7 +117,7 @@ class TestStateController:
         initialized_session: Session,
         test_controller: StateController,
         mocker: MockerFixture,
-    ):
+    ) -> None:
         mocker.patch("random.randint", mocker.MagicMock(return_value=5))
 
         _, _, foobar_count, euros_count = test_controller.counts(initialized_session)
@@ -140,7 +140,7 @@ class TestStateController:
         initialized_session: Session,
         test_controller: StateController,
         mocker: MockerFixture,
-    ):
+    ) -> None:
         """
         Tests what happens when we have less foobar than what we could sell.
         We should only sell what we have.
@@ -164,7 +164,7 @@ class TestStateController:
     @pytest.mark.init_controller_with(foo=6, euros=3)
     def test_buying_robot(
         self, initialized_session: Session, test_controller: StateController
-    ):
+    ) -> None:
         robot_list = test_controller.list_robots(initialized_session)
         foo_count, _, _, euros_count = test_controller.counts(initialized_session)
         assert len(robot_list) == 0
