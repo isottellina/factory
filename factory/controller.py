@@ -203,7 +203,10 @@ class StateController:
 
         # Getting the raw SQLite connection
         raw_connection = factory.database.engine.raw_connection()
-        savefile.backup(raw_connection.dbapi_connection)
+
+        # The stubs must be out-of-date, but this attribute exists (as of 1.4.23).
+        # mypy doesn't recognize it, so we have to ignore.
+        savefile.backup(raw_connection.dbapi_connection)  # type: ignore
 
     def save(self, filename: str) -> None:
         assert factory.database.engine.dialect.name == "sqlite"
@@ -213,7 +216,9 @@ class StateController:
 
         # Creating the file
         savefile = sqlite3.connect(filename)
-        raw_connection.backup(savefile)
+
+        # Same, mypy isn't aware of the ConnectionFairy proxy, apparently
+        raw_connection.backup(savefile)  # type: ignore
 
     @contextmanager
     def model_session(self) -> Iterator[SASession]:

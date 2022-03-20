@@ -1,6 +1,5 @@
 import enum
 import uuid
-from functools import cached_property
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, declarative_base, declared_attr, relationship
@@ -109,7 +108,10 @@ class MiningProductMixin:
     """
 
     serial = sa.Column(
-        sa.String(32), default=gen_uuid, doc="For traceability purposes."
+        sa.String(32),
+        default=gen_uuid,
+        doc="For traceability purposes.",
+        nullable=False,
     )
 
     @declared_attr
@@ -131,14 +133,6 @@ class Bar(Base, PKMixin, MiningProductMixin, UsableObject):
 
 class Foobar(Base, PKMixin, UsableObject):
     __tablename__ = "foobar"
-
-    @cached_property
-    def serial(self) -> str:
-        """
-        The serial number of a Foobar is the serial number of the
-        Foo and Bar that were used to make it.
-        """
-        return f"{self.foo_used.serial}-{self.bar_used.serial}"
 
     foo_used_id = sa.Column(
         sa.Integer,

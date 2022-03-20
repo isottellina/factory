@@ -46,7 +46,9 @@ class TestMainWindow:
 
 
 class TestRobotView:
-    def update(self, session: Session, test_robot: RobotController, widget: RobotView):
+    def update(
+        self, session: Session, test_robot: RobotController, widget: RobotView
+    ) -> None:
         """
         Helper function to update controller then fetch state.
         """
@@ -122,7 +124,7 @@ class TestRobotView:
 
     def test_default_is_idle(
         self, test_robot: RobotController, initialized_session: Session, qtbot: QtBot
-    ):
+    ) -> None:
         widget = RobotView(test_robot)
         self.update(initialized_session, test_robot, widget)
 
