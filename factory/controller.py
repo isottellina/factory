@@ -224,16 +224,6 @@ class StateController:
             for robot in session.scalars(sa.select(Robot)).all()
         ]
 
-    def get_robot_by_id(self, session: SESSION, id: int) -> RobotController:
-        robot = session.scalar(sa.select(Robot).where(Robot.id == id))
-
-        return self.get_from_cache_or_create(robot)
-
-    def get_robot_by_name(self, session: SESSION, name: str) -> RobotController:
-        robot = session.scalar(sa.select(Robot).where(Robot.name == name))
-
-        return self.get_from_cache_or_create(robot)
-
     def new_robot(self, session: SESSION) -> RobotController:
         """
         Generate a new robot with a unique name.
