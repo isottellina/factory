@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QMessageBox,
     QProgressBar,
     QPushButton,
     QScrollArea,
@@ -149,6 +150,12 @@ class RobotsView(QGroupBox):
         view = RobotView(robot)
         self.robot_layout.insertWidget(new_place, view)
         self.present_robots[robot.id] = view
+
+        # Print a nice victory message if the 30th robot is being inserted
+        if len(self.present_robots) == 30:
+            QMessageBox.information(
+                self.parentWidget(), "Victory!", "You won the game!"
+            )
 
     def __init__(self, controller: StateController, parent: Optional[QWidget] = None):
         super().__init__("Robots", parent)
