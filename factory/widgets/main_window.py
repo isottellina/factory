@@ -2,10 +2,11 @@
 from typing import Optional
 
 from PySide6.QtCore import QSize, QTimer, Slot
-from PySide6.QtWidgets import QHBoxLayout, QMainWindow, QMenuBar, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QMainWindow, QMenuBar, QVBoxLayout, QWidget
 from sqlalchemy.orm import Session as SASession
 
 from factory.controller import StateController
+from factory.widgets.trace import TraceabilityView
 
 from .inventory import InventoryView
 from .robots import RobotsView
@@ -38,12 +39,17 @@ class MainWindow(QMainWindow):
 
         central_widget = QWidget(self)
         central_layout = QHBoxLayout()
+        side_layout = QVBoxLayout()
 
         self.robots_view = RobotsView(controller, self)
         self.inventory_view = InventoryView(controller, self)
+        self.traceability_view = TraceabilityView(controller, self)
+
+        side_layout.addWidget(self.inventory_view)
+        side_layout.addWidget(self.traceability_view)
 
         central_layout.addWidget(self.robots_view, 75)
-        central_layout.addWidget(self.inventory_view, 25)
+        central_layout.addLayout(side_layout, 25)
 
         central_widget.setLayout(central_layout)
         self.setCentralWidget(central_widget)
@@ -66,6 +72,7 @@ class MainWindow(QMainWindow):
     def update_from_controller(self, session: SASession) -> None:
         self.robots_view.update_from_controller(session)
         self.inventory_view.update_from_controller(session)
+        self.traceability_view.update_from_controller(session)
 
     def sizeHint(self) -> QSize:
         return QSize(1366, 768)
