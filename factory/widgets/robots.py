@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QProgressBar,
     QPushButton,
+    QScrollArea,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
@@ -156,7 +157,19 @@ class RobotsView(QGroupBox):
         # Robots already inserted. We keep them with a mapping from robot id to widget.
         self.present_robots: dict[int, RobotView] = {}
 
+        self.container_layout = QVBoxLayout()
+
+        # Set the outermost layout to have no margins, we have plenty to go around.
+        self.container_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.scroll_area = QScrollArea(self)
+        self.scroll_area.setWidgetResizable(True)
+        self.container_widget = QWidget(self.scroll_area)
+
         self.robot_layout = QVBoxLayout()
         self.robot_layout.addStretch()  # Remaining space should be taken by nothing.
 
-        self.setLayout(self.robot_layout)
+        self.container_widget.setLayout(self.robot_layout)
+        self.scroll_area.setWidget(self.container_widget)
+        self.container_layout.addWidget(self.scroll_area)
+        self.setLayout(self.container_layout)
