@@ -2,16 +2,20 @@ from datetime import timedelta
 from unittest.mock import MagicMock
 
 import pytest
+import sqlalchemy as sa
 from freezegun.api import FrozenDateTimeFactory
 from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QSpacerItem, QWidgetItem
 from pytest_mock.plugin import MockerFixture
 from pytestqt.qtbot import QtBot
 from sqlalchemy.orm.session import Session
+from sqlalchemy.sql.elements import not_
 
 from factory.controller import RobotController, StateController
-from factory.models import RobotAction
+from factory.models import Foobar, RobotAction
 from factory.widgets import MainWindow
-from factory.widgets.robots import RobotView
+from factory.widgets.robots import RobotsView, RobotView
+from factory.widgets.trace import TraceabilityView
 
 
 class MockedStateController(StateController):
@@ -45,6 +49,41 @@ class TestMainWindow:
         window.update()
 
         MockedStateController.update.assert_called()
+
+
+class TestRobotsView:
+    def test_insert_order(
+        self,
+        qtbot: QtBot,
+        initialized_session: Session,
+        test_controller: StateController,
+    ) -> None:
+        """
+        New robots should be second-to-last
+        """
+        test_controller.new_robot(initialized_session)
+        widget = RobotsView(test_controller)
+        qtbot.addWidget(widget)
+
+        # Order should be RobotView - SpacerItem
+        widget.update_from_controller(initialized_session)
+        assert isinstance(widget.robot_layout.itemAt(0), QWidgetItem)
+
+        first_robot_view = widget.robot_layout.itemAt(0).widget()
+        assert isinstance(first_robot_view, RobotView)
+        assert isinstance(widget.robot_layout.itemAt(1), QSpacerItem)
+
+        test_controller.new_robot(initialized_session)
+
+        # Now it should be (the same) RobotView - (the new) RobotView - SpacerItem
+        widget.update_from_controller(initialized_session)
+        assert isinstance(widget.robot_layout.itemAt(0), QWidgetItem)
+        assert widget.robot_layout.itemAt(0).widget() == first_robot_view
+
+        assert isinstance(widget.robot_layout.itemAt(1), QWidgetItem)
+        assert widget.robot_layout.itemAt(1).widget() != first_robot_view
+
+        assert isinstance(widget.robot_layout.itemAt(2), QSpacerItem)
 
 
 class TestRobotView:
@@ -131,3 +170,32 @@ class TestRobotView:
         self.update(initialized_session, test_robot, widget)
 
         assert widget.action_label.text() == "Idle"
+
+
+class TestTraceability:
+    @pytest.mark.init_controller_with(foobar=1)
+    def test_sold_foobars_are_printed(
+        self,
+        test_controller: StateController,
+        initialized_session: Session,
+        qtbot: QtBot,
+    ) -> None:
+        widget = TraceabilityView(test_controller)
+        qtbot.addWidget(widget)
+
+        widget.update_from_controller(initialized_session)
+        assert widget.table.rowCount() == 0
+
+        # Now we sell one foobar
+        initialized_session.execute(
+            sa.update(Foobar)
+            .values(used=True)
+            .where(
+                Foobar.id.in_(sa.select(Foobar.id).where(not_(Foobar.used)).limit(1))
+            )
+            .execution_options(synchronize_session="fetch")
+        )
+
+        # Now there should be a row
+        widget.update_from_controller(initialized_session)
+        assert widget.table.rowCount() == 1

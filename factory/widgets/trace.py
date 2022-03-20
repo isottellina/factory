@@ -49,7 +49,7 @@ class TraceabilityView(QGroupBox):
 
         self.already_added.update(set(db_foobars))
 
-    def __init__(self, controller: StateController, parent: Optional[QWidget]):
+    def __init__(self, controller: StateController, parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.controller = controller
         self.setTitle("Sold foobars")

@@ -149,7 +149,7 @@ class RobotsView(QGroupBox):
         self.robot_layout.insertWidget(new_place, view)
         self.present_robots[robot.id] = view
 
-    def __init__(self, controller: StateController, parent: QWidget):
+    def __init__(self, controller: StateController, parent: Optional[QWidget] = None):
         super().__init__("Robots", parent)
 
         self.controller = controller
