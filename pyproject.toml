@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "factory"
-version = "0.1.0"
+version = "1.0.0"
 description = "A fun game with robots… from the future!"
 authors = ["Louise <louise.tillet@mailbox.org>"]
 
