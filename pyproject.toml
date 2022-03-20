@@ -32,7 +32,8 @@ strict = true
 
 [tool.pytest.ini_options]
 markers = [
-        "init_controller_with: requires the test controller be initialized with some objects"
+        "init_controller_with: requires the test controller be initialized with some objects",
+        "init_robot_with: start the robot controller with an action"
 ]
 
 [build-system]

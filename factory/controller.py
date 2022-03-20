@@ -39,6 +39,31 @@ class RobotController:
     def name(self) -> str:
         return self.robot.name
 
+    @property
+    def action(self) -> Optional[RobotAction]:
+        """
+        Helper for pyright, this poor little boy seems to be so lost.
+        """
+        return self.robot.action  # type: ignore
+
+    @action.setter
+    def action(self, action: Optional[RobotAction]) -> None:
+        self.robot.action = action  # type: ignore
+
+    @property
+    def active(self) -> bool:
+        """
+        Is the robot currently doing an actual action?
+        """
+        return self.robot.action is not None and self.robot.time_when_available is None
+
+    @property
+    def changing(self) -> bool:
+        """
+        Is the robot currently switching to another action?
+        """
+        return self.robot.time_when_available is not None
+
     @contextmanager
     def model_session(self) -> Iterator[SESSION]:
         ref = self.parent_controller()
@@ -79,24 +104,24 @@ class RobotController:
             How much time will the action take? Can't use a mapping for this
             one since one of the action is random.
             """
-            if self.robot.action == RobotAction.MINING_FOO:
+            if self.action == RobotAction.MINING_FOO:
                 return timedelta(seconds=2)
 
-            elif self.robot.action == RobotAction.MINING_BAR:
+            elif self.action == RobotAction.MINING_BAR:
                 return timedelta(milliseconds=random.randint(500, 2000))
 
-            elif self.robot.action == RobotAction.MAKING_FOOBAR:
+            elif self.action == RobotAction.MAKING_FOOBAR:
                 return timedelta(seconds=2)
 
-            elif self.robot.action == RobotAction.SELLING_FOOBAR:
+            elif self.action == RobotAction.SELLING_FOOBAR:
                 return timedelta(seconds=10)
 
             raise AssertionError("The robot's action is in an incoherent state.")
 
-        if self.robot.action == RobotAction.BUYING_ROBOT:
+        if self.action == RobotAction.BUYING_ROBOT:
             # This one is instantly finished.
             self.action_done(session)
-            self.robot.action = None
+            self.action = None
             return
 
         self.robot.time_started = now
@@ -107,13 +132,13 @@ class RobotController:
         Function to run when an action is done. Manages the weakref to
         the parent. Returns whether the action should start again.
         """
-        assert self.robot.action
+        assert self.action
 
         parent = self.parent_controller()
         assert parent, "Parent controller was Garbage-Collected?"
 
-        result = parent.robot_action_done(self.robot.action, session)
-        if self.robot.action == RobotAction.BUYING_ROBOT:
+        result = parent.robot_action_done(self.action, session)
+        if self.action == RobotAction.BUYING_ROBOT:
             return False
 
         return result
@@ -125,7 +150,7 @@ class RobotController:
         self.robot = session.merge(self.robot)
 
         # Short-circuit if the robot is doing nothing.
-        if self.robot.action is None:
+        if self.action is None:
             return
 
         # Is the robot changing actions?
@@ -142,13 +167,13 @@ class RobotController:
             if self.action_done(session):
                 self.start_action(session, now)
             else:
-                self.robot.action = None
+                self.action = None
 
     def change_action(self, session: SESSION, new_action: RobotAction) -> None:
         self.robot = session.merge(self.robot)
 
         now = datetime.now()
-        self.robot.action = new_action
+        self.action = new_action
         self.robot.time_started = now
         self.robot.time_when_available = now + timedelta(seconds=5)
 

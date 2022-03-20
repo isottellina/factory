@@ -1,9 +1,12 @@
+from datetime import timedelta
+
 import pytest
 import sqlalchemy as sa
+from freezegun.api import FrozenDateTimeFactory
 from pytest_mock import MockerFixture
 from sqlalchemy.orm import Session
 
-from factory.controller import StateController
+from factory.controller import RobotController, StateController
 from factory.models import Bar, Foo, Foobar, Robot, RobotAction
 
 
@@ -179,3 +182,92 @@ class TestStateController:
         assert len(new_robot_list) == 1
         assert new_foo_count == 0
         assert new_euros_count == 0
+
+
+class TestRobotController:
+    def test_changing_action(
+        self,
+        initialized_session: Session,
+        test_robot: RobotController,
+        frozen_time: FrozenDateTimeFactory,
+    ) -> None:
+        assert not test_robot.active
+        assert not test_robot.changing
+
+        test_robot.change_action(initialized_session, RobotAction.MINING_FOO)
+        test_robot.update(initialized_session, frozen_time())
+        assert not test_robot.active
+        assert test_robot.changing
+
+        # 3 seconds later, robot should still be changing
+        frozen_time.tick(timedelta(seconds=3))
+        test_robot.update(initialized_session, frozen_time())
+        assert not test_robot.active
+        assert test_robot.changing
+
+        # 3 seconds more and the robot should be serving its space overlord
+        frozen_time.tick(timedelta(seconds=3))
+        test_robot.update(initialized_session, frozen_time())
+        assert test_robot.active
+        assert not test_robot.changing
+
+    @pytest.mark.init_controller_with(foo=6, euros=3)
+    def test_buying_robot_is_one_off(
+        self,
+        initialized_session: Session,
+        test_controller: StateController,
+        test_robot: RobotController,
+        frozen_time: FrozenDateTimeFactory,
+    ) -> None:
+        assert len(test_controller.list_robots(initialized_session)) == 1
+
+        test_robot.change_action(initialized_session, RobotAction.BUYING_ROBOT)
+        assert test_robot.changing
+        assert test_robot.action
+
+        frozen_time.tick(timedelta(seconds=6))
+        test_robot.update(initialized_session, frozen_time())
+
+        # Now the robot should have no action and there should be a new robot
+        assert not test_robot.action
+        assert len(test_controller.list_robots(initialized_session)) == 2
+
+    @pytest.mark.init_robot_with(action=RobotAction.MINING_FOO)
+    def test_action_gets_restarted(
+        self,
+        initialized_session: Session,
+        test_robot: RobotController,
+        frozen_time: FrozenDateTimeFactory,
+    ) -> None:
+        assert Foo.count_not_used(initialized_session) == 0
+        assert test_robot.active
+
+        # 2 seconds later, robot should be finished but have restarted
+        frozen_time.tick(timedelta(seconds=2))
+        test_robot.update(initialized_session, frozen_time())
+
+        assert Foo.count_not_used(initialized_session) == 1
+        assert test_robot.active
+
+    @pytest.mark.init_robot_with(action=RobotAction.MAKING_FOOBAR)
+    def test_failed_action_dont_restart(
+        self,
+        initialized_session: Session,
+        test_robot: RobotController,
+        frozen_time: FrozenDateTimeFactory,
+    ) -> None:
+        """
+        When a robot doesn't have enough materials to do its action,
+        the action should not restart.
+        """
+        assert test_robot.active
+        assert test_robot.action == RobotAction.MAKING_FOOBAR
+
+        # Wait for the time to make foobar (2 seconds)
+        frozen_time.tick(timedelta(seconds=2))
+        test_robot.update(initialized_session, frozen_time())
+
+        # There should still be no foobar, and robot should not have restarted.
+        assert Foobar.count_not_used(initialized_session) == 0
+        assert not test_robot.action
+        assert not test_robot.active

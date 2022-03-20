@@ -1,13 +1,15 @@
+from datetime import timedelta
 from typing import Iterator
 
 import pytest
+from freezegun.api import FrozenDateTimeFactory, freeze_time
 from pytest_mock import MockerFixture
 from sqlalchemy.engine import create_engine
 from sqlalchemy.orm import Session as SASession
 from sqlalchemy.orm import scoped_session, sessionmaker
 
 import factory.database
-from factory.controller import StateController
+from factory.controller import RobotController, StateController
 from factory.models import Bar, Foo, Foobar
 
 
@@ -24,7 +26,7 @@ def mock_session(mocker: MockerFixture) -> Iterator[SASession]:
 
 
 @pytest.fixture
-def initialized_session(mock_session: scoped_session) -> scoped_session:
+def initialized_session(mock_session: SASession) -> SASession:
     """
     Same as mock_session, but ensures the database is initialized.
     """
@@ -71,3 +73,31 @@ def test_controller(
     controller.add_euros(initialized_session, euros_to_create)
 
     return controller
+
+
+@pytest.fixture
+def test_robot(
+    request: pytest.FixtureRequest,
+    initialized_session: SASession,
+    test_controller: StateController,
+    frozen_time: FrozenDateTimeFactory,
+) -> RobotController:
+    creation_parameters = request.node.get_closest_marker("init_robot_with")
+    robot = test_controller.new_robot(initialized_session)
+
+    if not creation_parameters:
+        return robot
+
+    action = creation_parameters.kwargs.get("action")
+    if action:
+        robot.change_action(initialized_session, action)
+        frozen_time.tick(timedelta(seconds=5))
+        robot.update(initialized_session, frozen_time())
+
+    return robot
+
+
+@pytest.fixture
+def frozen_time() -> Iterator[FrozenDateTimeFactory]:
+    with freeze_time() as frozen_datetime:
+        yield frozen_datetime
