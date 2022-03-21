@@ -22,10 +22,17 @@ On UNIX-based systems, make sure Qt6 and libclang are available as shared librar
 
 ## Troubleshooting
 This project was tested on Linux, and compatibility is not guaranteed for other platforms.
+
 However, issues running this program are probably due to PySide6 or Shiboken6 (from the Qt for Python
 project). You can read instructions on how to build it on different platforms here:
 https://doc.qt.io/qtforpython/gettingstarted.html
 
+Despite using qt6, this project can run on systems on which it is not available (i.e. Debian stable).
+However, you might need to install libraries, of which we can't provide a complete list. The environment
+variable QT_DEBUG_PLUGINS might be useful for this, since it will print out which libraries Qt can't
+load.
+
+You can also find a version using Qt5 on the qt5 branch.
 
 ## Contributing
 Pull requests are welcome. In terms of code-style, this project uses black, isort, mypy and flake8.
