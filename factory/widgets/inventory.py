@@ -1,6 +1,6 @@
 from typing import Optional
 
-from PySide6.QtWidgets import QGroupBox, QLabel, QVBoxLayout, QWidget
+from PySide2.QtWidgets import QGroupBox, QLabel, QVBoxLayout, QWidget
 from sqlalchemy.orm import Session as SASession
 
 from factory.controller import StateController

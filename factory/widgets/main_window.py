@@ -2,8 +2,8 @@
 import os
 from typing import Optional
 
-from PySide6.QtCore import QSize, QTimer, Slot
-from PySide6.QtWidgets import (
+from PySide2.QtCore import QSize, QTimer, Slot
+from PySide2.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
     QMainWindow,

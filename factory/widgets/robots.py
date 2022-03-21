@@ -1,7 +1,7 @@
 from typing import Optional
 
-from PySide6.QtCore import QSize, Slot
-from PySide6.QtWidgets import (
+from PySide2.QtCore import QSize, Slot
+from PySide2.QtWidgets import (
     QButtonGroup,
     QFrame,
     QGroupBox,

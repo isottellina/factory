@@ -1,7 +1,7 @@
 import sys
 from typing import NoReturn
 
-from PySide6.QtWidgets import QApplication
+from PySide2.QtWidgets import QApplication
 
 import factory.database
 from factory.controller import StateController
@@ -22,4 +22,4 @@ def main() -> NoReturn:
     window = MainWindow(state)
     window.show()
 
-    sys.exit(app.exec())
+    sys.exit(app.exec_())

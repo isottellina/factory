@@ -1,7 +1,7 @@
 from typing import Optional, cast
 
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (
+from PySide2.QtCore import Qt
+from PySide2.QtWidgets import (
     QGroupBox,
     QTableWidget,
     QTableWidgetItem,

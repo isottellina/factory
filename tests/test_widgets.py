@@ -4,8 +4,8 @@ from unittest.mock import MagicMock
 import pytest
 import sqlalchemy as sa
 from freezegun.api import FrozenDateTimeFactory
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QSpacerItem, QWidgetItem
+from PySide2.QtCore import Qt
+from PySide2.QtWidgets import QSpacerItem, QWidgetItem
 from pytest_mock.plugin import MockerFixture
 from pytestqt.qtbot import QtBot
 from sqlalchemy.orm.session import Session
