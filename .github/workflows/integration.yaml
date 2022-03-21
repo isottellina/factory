@@ -1,0 +1,34 @@
+---
+name: Integration
+on: [push]
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v2
+        with:
+          version: 6.2.0
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.10.2
+      - uses: knowsuchagency/poetry-install@v1
+
+      - run: poetry run mypy factory
+      - run: poetry run flake8 factory
+      - run: poetry run black --check factory
+      - run: poetry run isort --check factory
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v2
+        with:
+          version: 6.2.0
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.10.2
+      - uses: knowsuchagency/poetry-install@v1
+      - run: poetry run pytest
